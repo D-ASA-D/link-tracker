@@ -1,0 +1,280 @@
+1. RED: HTTP request rate
+
+sum by (application) (
+rate(http_server_requests_seconds_count{
+job=~"bot|scrapper",
+instance=~"bot:8011|scrapper:8081",
+application=~"bot|scrapper",
+service_type=~"bot|scrapper",
+uri!="/metrics"
+}[1m])
+)
+
+-----------------------------------
+
+2. RED: HTTP errors rate
+
+sum by (application, status) (
+rate(http_server_requests_seconds_count{
+job=~"bot|scrapper",
+instance=~"bot:8011|scrapper:8081",
+application=~"bot|scrapper",
+service_type=~"bot|scrapper",
+status=~"4..|5..",
+uri!="/metrics"
+}[1m])
+)
+
+-----------------------------------
+
+3. RED: HTTP p95 latency
+
+histogram_quantile(
+0.95,
+sum by (le, application) (
+rate(http_server_requests_seconds_bucket{
+job=~"bot|scrapper",
+instance=~"bot:8011|scrapper:8081",
+application=~"bot|scrapper",
+service_type=~"bot|scrapper",
+uri!="/metrics"
+}[5m])
+)
+)
+
+-----------------------------------
+
+4. JVM memory used by area
+
+sum by (application, area) (
+jvm_memory_used_bytes{
+job=~"bot|scrapper",
+instance=~"bot:8011|scrapper:8081",
+application=~"bot|scrapper",
+service_type=~"bot|scrapper"
+}
+)
+
+-----------------------------------
+
+5. Bot command requests rate
+
+sum by (command) (
+rate(command_requests_total{
+job="bot",
+instance="bot:8011",
+application="bot",
+service_type="bot"
+}[1m])
+)
+
+-----------------------------------
+
+6. Tracked links by source
+
+sum by (tracked_source) (
+links_on_track{
+job="scrapper",
+instance="scrapper:8081",
+application="scrapper",
+service_type="scrapper"
+}
+)
+
+-----------------------------------
+
+7. Scrapper scrape duration p50 by source
+
+histogram_quantile(
+0.50,
+sum by (le, scope_type) (
+rate(request_duration_ms_total_milliseconds_bucket{
+job="scrapper",
+instance="scrapper:8081",
+application="scrapper",
+service_type="scrapper",
+scope="external_source"
+}[5m])
+)
+)
+
+-----------------------------------
+
+8. Scrapper scrape duration p95 by source
+
+histogram_quantile(
+0.95,
+sum by (le, scope_type) (
+rate(request_duration_ms_total_milliseconds_bucket{
+job="scrapper",
+instance="scrapper:8081",
+application="scrapper",
+service_type="scrapper",
+scope="external_source"
+}[5m])
+)
+)
+
+-----------------------------------
+
+9. Scrapper scrape duration p99 by source
+
+histogram_quantile(
+0.99,
+sum by (le, scope_type) (
+rate(request_duration_ms_total_milliseconds_bucket{
+job="scrapper",
+instance="scrapper:8081",
+application="scrapper",
+service_type="scrapper",
+scope="external_source"
+}[5m])
+)
+)
+
+-----------------------------------
+
+10. Bot command duration p50
+
+histogram_quantile(
+0.50,
+sum by (le, scope_type) (
+rate(command_duration_ms_total_milliseconds_bucket{
+job="bot",
+instance="bot:8011",
+application="bot",
+service_type="bot",
+scope="telegram_command"
+}[5m])
+)
+)
+
+-----------------------------------
+
+11. Bot command duration p95
+
+histogram_quantile(
+0.95,
+sum by (le, scope_type) (
+rate(command_duration_ms_total_milliseconds_bucket{
+job="bot",
+instance="bot:8011",
+application="bot",
+service_type="bot",
+scope="telegram_command"
+}[5m])
+)
+)
+
+-----------------------------------
+12. Bot command duration p99
+
+histogram_quantile(
+0.99,
+sum by (le, scope_type) (
+rate(command_duration_ms_total_milliseconds_bucket{
+job="bot",
+instance="bot:8011",
+application="bot",
+service_type="bot",
+scope="telegram_command"
+}[5m])
+)
+)
+
+-----------------------------------
+
+13. Telegram bot requests rate
+
+sum by (request_type) (
+rate(telegram_requests_total{
+job="bot",
+instance="bot:8011",
+application="bot",
+service_type="bot"
+}[1m])
+)
+
+-----------------------------------
+
+14. Sent notifications rate
+
+sum(
+rate(sent_notification_total{
+job="bot",
+instance="bot:8011",
+application="bot",
+service_type="bot"
+}[1m])
+)
+
+-----------------------------------
+
+15. Scrapper API requests by source
+
+sum by (source) (
+rate(api_requests_total{
+job="scrapper",
+instance="scrapper:8081",
+application="scrapper",
+service_type="scrapper"
+}[1m])
+)
+
+-----------------------------------
+
+16. Scrapper component duration p95
+
+histogram_quantile(
+0.95,
+sum by (le, scope, scope_type) (
+rate(request_duration_ms_total_milliseconds_bucket{
+job="scrapper",
+instance="scrapper:8081",
+application="scrapper",
+service_type="scrapper"
+}[5m])
+)
+)
+
+-----------------------------------
+
+17. JVM heap memory usage percent for Grafana alert
+
+sum by (application) (
+  jvm_memory_used_bytes{
+    job=~"bot|scrapper",
+    instance=~"bot:8011|scrapper:8081",
+    area="heap",
+    application=~"bot|scrapper"
+  }
+)
+/
+sum by (application) (
+  jvm_memory_max_bytes{
+    job=~"bot|scrapper",
+    instance=~"bot:8011|scrapper:8081",
+    area="heap",
+    application=~"bot|scrapper"
+  }
+)
+* 100
+-----------------------------------
+
+18. Pushgateway: pushed Bot metrics
+
+command_requests_total{
+job="bot",
+application="bot",
+instance=""
+}
+
+-----------------------------------
+
+19. Pushgateway: pushed Scrapper metrics
+
+request_duration_ms_total_milliseconds_count{
+job="scrapper",
+application="scrapper",
+instance=""
+}

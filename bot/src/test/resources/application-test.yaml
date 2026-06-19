@@ -1,0 +1,17 @@
+spring:
+  liquibase:
+    enabled: false
+
+app:
+  kafka:
+    consumer:
+      enabled: false
+
+  telegram:
+    url: ${wiremock.server.baseUrl}/bot
+    token: test-token
+    update-listener-sleep: 1s
+    debug: true
+
+scrapper:
+  base-url: http://localhost:8081

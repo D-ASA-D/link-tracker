@@ -1,0 +1,77 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: bot
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/linktracker
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+
+  liquibase:
+    enabled: true
+    change-log: file:./migrations/bot-master.xml
+
+  kafka:
+    consumer:
+      group-id: link-tracker-bot
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.value.default.type: backend.academy.linktracker.bot.dto.ProcessedLinkUpdate
+        spring.json.trusted.packages: backend.academy.linktracker.bot.dto
+        spring.json.use.type.headers: false
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+management:
+  server:
+    port: 8011
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+      base-path: /
+      path-mapping:
+        prometheus: metrics
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: bot
+      service_type: bot
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+      slo:
+        http.server.requests: 10ms,25ms,50ms,100ms,250ms,500ms,1000ms,2500ms,5000ms,10000ms
+
+scrapper:
+  base-url: http://localhost:8081
+
+app:
+  kafka:
+    topic: link.processed-updates
+    dlt-topic: link-updates-dlt
+    group-id: link-tracker-bot
+    retry-max-attempts: 3
+    retry-backoff-ms: 1000
+    consumer:
+      enabled: true
+
+  telegram:
+    url: https://api.telegram.org/bot
+    token: ${TELEGRAM_TOKEN}
+    update-listener-sleep: 1s
+    debug: false

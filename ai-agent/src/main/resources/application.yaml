@@ -1,0 +1,113 @@
+server:
+  port: 8082
+
+spring:
+  config:
+    import: classpath:prompt.yaml
+  application:
+    name: ai-agent
+  kafka:
+    bootstrap-servers:
+      - localhost:9092
+      - localhost:9094
+      - localhost:9096
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 2147483647
+      properties:
+        enable.idempotence: true
+        linger.ms: 20
+        batch.size: 32768
+        spring.json.add.type.headers: false
+    consumer:
+      group-id: link-tracker-ai-agent
+      auto-offset-reset: earliest
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: backend.academy.linktracker.ai.dto.RawLinkUpdate
+
+
+
+
+
+app:
+  yandex:
+    gpt:
+      api-properties:
+        key: ${GPT_KEY}
+        base-url: https://llm.api.cloud.yandex.net/foundationModels/v1/completion
+      folder-settings:
+        id: ${GPT_FOLDER_ID}
+      model: yandexgpt
+      max-tokens: 1000
+      temperature: 0.7
+      timeout:
+        connect-timeout: 2s
+        read-timeout: 10s
+
+ai-agent:
+  filter:
+    stop-words:
+      - spam
+      - ads
+      - promo
+    excluded-authors:
+      - bot-user
+    min-length: 20
+  summarization:
+    mode: YANDEX_GPT
+    threshold: 500
+  prioritization:
+    high-keywords:
+      - critical
+      - urgent
+      - breaking
+      - security
+    low-keywords:
+      - minor
+      - typo
+      - chore
+      - docs
+  grouping:
+    window-ms: 30000
+  kafka:
+    raw-updates-topic: link.raw-updates
+    processed-updates-topic: link.processed-updates
+
+resilience4j:
+  retry:
+    retry-aspect-order: 2
+    instances:
+      gptServiceRetry:
+        max-attempts: 3
+        wait-duration: 1000ms
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.HttpClientErrorException$TooManyRequests
+          - java.lang.IllegalStateException
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException$BadRequest
+          - org.springframework.web.client.HttpClientErrorException$Unauthorized
+          - org.springframework.web.client.HttpClientErrorException$Forbidden
+          - org.springframework.web.client.HttpClientErrorException$NotFound
+
+  circuitbreaker:
+    circuit-breaker-aspect-order: 1
+    instances:
+      gptServiceCB:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 15
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+

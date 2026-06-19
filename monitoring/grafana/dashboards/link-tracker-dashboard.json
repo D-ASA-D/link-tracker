@@ -1,0 +1,380 @@
+{
+    "uid": "link-tracker-main",
+    "title": "Link Tracker Observability",
+    "tags": [
+        "link-tracker",
+        "spring",
+        "prometheus"
+    ],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "10s",
+    "time": {
+        "from": "now-15m",
+        "to": "now"
+    },
+    "templating": {
+        "list": [
+            {
+                "name": "application",
+                "type": "query",
+                "label": "Application",
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "prometheus"
+                },
+                "query": "label_values(jvm_memory_used_bytes{job=~\"bot|scrapper\", instance=~\"bot:8011|scrapper:8081\", application=~\"bot|scrapper\"}, application)",
+                "refresh": 1,
+                "includeAll": true,
+                "allValue": ".*",
+                "multi": true,
+                "current": {
+                    "selected": false,
+                    "text": "All",
+                    "value": "$__all"
+                }
+            },
+            {
+                "name": "service_type",
+                "type": "query",
+                "label": "Service Type",
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "prometheus"
+                },
+                "query": "label_values(jvm_memory_used_bytes{job=~\"bot|scrapper\", instance=~\"bot:8011|scrapper:8081\", service_type=~\"bot|scrapper\"}, service_type)",
+                "refresh": 1,
+                "includeAll": true,
+                "allValue": ".*",
+                "multi": true,
+                "current": {
+                    "selected": false,
+                    "text": "All",
+                    "value": "$__all"
+                }
+            }
+        ]
+    },
+    "panels": [
+        {
+            "id": 1,
+            "title": "RED: HTTP request rate",
+            "type": "timeseries",
+            "description": "Rate: количество HTTP-запросов в секунду по приложениям. Метрика исключает /metrics, чтобы не учитывать scrape Prometheus.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (application) (rate(http_server_requests_seconds_count{job=~\"bot|scrapper\", instance=~\"bot:8011|scrapper:8081\", application=~\"$application\", service_type=~\"$service_type\", uri!=\"/metrics\"}[1m]))",
+                    "legendFormat": "{{application}}"
+                }
+            ],
+            "gridPos": {
+                "x": 0,
+                "y": 0,
+                "w": 12,
+                "h": 8
+            }
+        },
+        {
+            "id": 2,
+            "title": "RED: HTTP errors rate",
+            "type": "timeseries",
+            "description": "Errors: количество HTTP 4xx/5xx ошибок в секунду по приложениям.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (application, status) (rate(http_server_requests_seconds_count{job=~\"bot|scrapper\", instance=~\"bot:8011|scrapper:8081\", application=~\"$application\", service_type=~\"$service_type\", status=~\"4..|5..\", uri!=\"/metrics\"}[1m]))",
+                    "legendFormat": "{{application}} {{status}}"
+                }
+            ],
+            "gridPos": {
+                "x": 12,
+                "y": 0,
+                "w": 12,
+                "h": 8
+            }
+        },
+        {
+            "id": 3,
+            "title": "RED: HTTP p95 latency",
+            "type": "timeseries",
+            "description": "Duration: p95 latency HTTP-запросов по приложениям.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "histogram_quantile(0.95, sum by (le, application) (rate(http_server_requests_seconds_bucket{job=~\"bot|scrapper\", instance=~\"bot:8011|scrapper:8081\", application=~\"$application\", service_type=~\"$service_type\", uri!=\"/metrics\"}[5m])))",
+                    "legendFormat": "{{application}} p95"
+                }
+            ],
+            "gridPos": {
+                "x": 0,
+                "y": 8,
+                "w": 12,
+                "h": 8
+            }
+        },
+        {
+            "id": 4,
+            "title": "JVM memory used",
+            "type": "timeseries",
+            "description": "Используемая память JVM с разделением по области памяти: heap/nonheap.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (application, area) (jvm_memory_used_bytes{job=~\"bot|scrapper\", instance=~\"bot:8011|scrapper:8081\", application=~\"$application\", service_type=~\"$service_type\"})",
+                    "legendFormat": "{{application}} {{area}}"
+                }
+            ],
+            "gridPos": {
+                "x": 12,
+                "y": 8,
+                "w": 12,
+                "h": 8
+            }
+        },
+        {
+            "id": 5,
+            "title": "Bot command requests rate",
+            "type": "timeseries",
+            "description": "Количество обработанных пользовательских команд в секунду с группировкой по команде.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (command) (rate(command_requests_total{job=\"bot\", instance=\"bot:8011\", application=~\"$application\", service_type=~\"$service_type\"}[1m]))",
+                    "legendFormat": "{{command}}"
+                }
+            ],
+            "gridPos": {
+                "x": 0,
+                "y": 16,
+                "w": 12,
+                "h": 8
+            }
+        },
+        {
+            "id": 6,
+            "title": "Tracked links by source",
+            "type": "bargauge",
+            "description": "Количество активных ссылок в БД, поставленных на мониторинг, с разделением по источнику.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (tracked_source) (links_on_track{job=\"scrapper\", instance=\"scrapper:8081\", application=~\"$application\", service_type=~\"$service_type\"})",
+                    "legendFormat": "{{tracked_source}}"
+                }
+            ],
+            "gridPos": {
+                "x": 12,
+                "y": 16,
+                "w": 12,
+                "h": 8
+            }
+        },
+        {
+            "id": 7,
+            "title": "Scrapper scrape duration p50/p95/p99",
+            "type": "timeseries",
+            "description": "50-й, 95-й и 99-й перцентиль времени выполнения scrape-операций Scrapper по типу источника.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "histogram_quantile(0.50, sum by (le, scope_type) (rate(request_duration_ms_total_milliseconds_bucket{job=\"scrapper\", instance=\"scrapper:8081\", application=~\"$application\", service_type=~\"$service_type\", scope=\"external_source\"}[5m])))",
+                    "legendFormat": "{{scope_type}} p50"
+                },
+                {
+                    "refId": "B",
+                    "expr": "histogram_quantile(0.95, sum by (le, scope_type) (rate(request_duration_ms_total_milliseconds_bucket{job=\"scrapper\", instance=\"scrapper:8081\", application=~\"$application\", service_type=~\"$service_type\", scope=\"external_source\"}[5m])))",
+                    "legendFormat": "{{scope_type}} p95"
+                },
+                {
+                    "refId": "C",
+                    "expr": "histogram_quantile(0.99, sum by (le, scope_type) (rate(request_duration_ms_total_milliseconds_bucket{job=\"scrapper\", instance=\"scrapper:8081\", application=~\"$application\", service_type=~\"$service_type\", scope=\"external_source\"}[5m])))",
+                    "legendFormat": "{{scope_type}} p99"
+                }
+            ],
+            "gridPos": {
+                "x": 0,
+                "y": 24,
+                "w": 12,
+                "h": 8
+            }
+        },
+        {
+            "id": 8,
+            "title": "Bot command duration p50/p95/p99",
+            "type": "timeseries",
+            "description": "50-й, 95-й и 99-й перцентиль времени обработки одной команды в Bot-сервисе.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "histogram_quantile(0.50, sum by (le, scope_type) (rate(command_duration_ms_total_milliseconds_bucket{job=\"bot\", instance=\"bot:8011\", application=~\"$application\", service_type=~\"$service_type\", scope=\"telegram_command\"}[5m])))",
+                    "legendFormat": "{{scope_type}} p50"
+                },
+                {
+                    "refId": "B",
+                    "expr": "histogram_quantile(0.95, sum by (le, scope_type) (rate(command_duration_ms_total_milliseconds_bucket{job=\"bot\", instance=\"bot:8011\", application=~\"$application\", service_type=~\"$service_type\", scope=\"telegram_command\"}[5m])))",
+                    "legendFormat": "{{scope_type}} p95"
+                },
+                {
+                    "refId": "C",
+                    "expr": "histogram_quantile(0.99, sum by (le, scope_type) (rate(command_duration_ms_total_milliseconds_bucket{job=\"bot\", instance=\"bot:8011\", application=~\"$application\", service_type=~\"$service_type\", scope=\"telegram_command\"}[5m])))",
+                    "legendFormat": "{{scope_type}} p99"
+                }
+            ],
+            "gridPos": {
+                "x": 12,
+                "y": 24,
+                "w": 12,
+                "h": 8
+            }
+        },
+        {
+            "id": 9,
+            "title": "Telegram bot requests",
+            "type": "timeseries",
+            "description": "Количество входящих запросов/сообщений к Telegram-боту в секунду с разделением по типу запроса.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (request_type) (rate(telegram_requests_total{job=\"bot\", instance=\"bot:8011\", application=~\"$application\", service_type=~\"$service_type\"}[1m]))",
+                    "legendFormat": "{{request_type}}"
+                }
+            ],
+            "gridPos": {
+                "x": 0,
+                "y": 32,
+                "w": 12,
+                "h": 8
+            }
+        },
+        {
+            "id": 10,
+            "title": "Sent notifications",
+            "type": "timeseries",
+            "description": "Количество отправленных Telegram-уведомлений в секунду.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum(rate(sent_notification_total{job=\"bot\", instance=\"bot:8011\", application=~\"$application\", service_type=~\"$service_type\"}[1m]))",
+                    "legendFormat": "sent notifications"
+                }
+            ],
+            "gridPos": {
+                "x": 12,
+                "y": 32,
+                "w": 12,
+                "h": 8
+            }
+        },
+        {
+            "id": 11,
+            "title": "Scrapper API requests by source",
+            "type": "timeseries",
+            "description": "Количество входящих запросов к Scrapper API по источнику запроса.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (source) (rate(api_requests_total{job=\"scrapper\", instance=\"scrapper:8081\", application=~\"$application\", service_type=~\"$service_type\"}[1m]))",
+                    "legendFormat": "{{source}}"
+                }
+            ],
+            "gridPos": {
+                "x": 0,
+                "y": 40,
+                "w": 12,
+                "h": 8
+            }
+        },
+        {
+            "id": 12,
+            "title": "Scrapper component duration p95",
+            "type": "timeseries",
+            "description": "p95 длительности операций Scrapper по внешним компонентам: database, kafka, bot_api, external_source.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "histogram_quantile(0.95, sum by (le, scope, scope_type) (rate(request_duration_ms_total_milliseconds_bucket{job=\"scrapper\", instance=\"scrapper:8081\", application=~\"$application\", service_type=~\"$service_type\"}[5m])))",
+                    "legendFormat": "{{scope}} {{scope_type}} p95"
+                }
+            ],
+            "gridPos": {
+                "x": 12,
+                "y": 40,
+                "w": 12,
+                "h": 8
+            }
+        },
+        {
+            "id": 13,
+            "title": "Pushgateway: tracked links by source",
+            "type": "bargauge",
+            "description": "Количество активных ссылок в БД по источнику, полученное через Pushgateway. Используется instance=\"\", чтобы брать pushed-метрики, а не Pull-метрики напрямую из Scrapper.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (tracked_source) (links_on_track{job=\"scrapper\", instance=\"\", application=~\"$application\", service_type=~\"$service_type\"})",
+                    "legendFormat": "{{tracked_source}}"
+                }
+            ],
+            "gridPos": {
+                "x": 0,
+                "y": 48,
+                "w": 12,
+                "h": 8
+            }
+        }
+    ]
+}

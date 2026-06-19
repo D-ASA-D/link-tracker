@@ -1,0 +1,35 @@
+spring:
+  kafka:
+    bootstrap-servers:
+      - kafka1:29092
+      - kafka2:29092
+      - kafka3:29092
+
+  datasource:
+    url: jdbc:postgresql://postgres:5432/linktracker
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+
+  liquibase:
+    enabled: true
+    change-log: file:/app/migrations/bot-master.xml
+
+management:
+  metrics:
+    enable:
+      http.server.requests.active: false
+  prometheus:
+    metrics:
+      export:
+        pushgateway:
+          enabled: true
+          address: pushgateway:9091
+          job: bot
+          push-rate: 5s
+          shutdown-operation: post
+          grouping-key:
+            application: bot
+            service_type: bot
+
+scrapper:
+  base-url: http://scrapper:8081

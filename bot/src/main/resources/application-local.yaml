@@ -1,0 +1,18 @@
+spring:
+  kafka:
+    bootstrap-servers:
+      - localhost:9092
+      - localhost:9094
+      - localhost:9096
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/linktracker
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+
+  liquibase:
+    enabled: true
+    change-log: file:./migrations/bot-master.xml
+
+scrapper:
+  base-url: http://localhost:8081

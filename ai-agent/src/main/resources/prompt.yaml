@@ -1,0 +1,10 @@
+app:
+  yandex:
+    gpt:
+      prompt:
+        system: |
+          Summarize the following update preview in 2-3 sentences.
+          Keep the main meaning.
+          Answer in Russian.
+          Return only the summarized preview text.
+          Do not add title, link, metadata or explanations.
